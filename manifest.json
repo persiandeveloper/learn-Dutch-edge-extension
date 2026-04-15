@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Learn Dutch By AI",
   "version": "1.0",
-  "permissions": ["contextMenus"],
+  "permissions": ["contextMenus", "activeTab", "scripting"],
   "background": {
     "service_worker": "background.js"
   },
