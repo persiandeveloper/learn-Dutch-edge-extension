@@ -27,7 +27,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
                 "messages": [
                     {
                         "role": "system",
-                        "content": "You are gonna help me improve my dutch. When replying, only return what asked."
+                        "content": "You are gonna help me improve my dutch. When replying, only return what asked. Do not start the reply with 'Certainly!'."
                     },
                     {
                         "role": "user",
@@ -43,7 +43,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
                 "messages": [
                     {
                         "role": "system",
-                        "content": "You are gonna help me improve my dutch. When replying, only return what asked. Do not include 'Certainly!' in your reply."
+                        "content": "You are gonna help me improve my dutch. When replying, only return what asked. Do not start the reply with 'Certainly!'."
                     },
                     {
                         "role": "user",
