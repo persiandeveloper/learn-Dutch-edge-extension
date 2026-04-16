@@ -18,7 +18,7 @@ let controller = new AbortController();
 // Handle the click event
 chrome.contextMenus.onClicked.addListener((info, tab) => {
     chrome.tabs.sendMessage(tab.id, { action: "loadingAI" });
-
+    controller = new AbortController();
     try {
         const selectedText = info.selectionText;
 
@@ -81,6 +81,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 function canjugate(data, tabId) {
+    controller = new AbortController();
     chrome.tabs.sendMessage(tabId, { action: "loadingAI" });
 
     var requestBody = {
