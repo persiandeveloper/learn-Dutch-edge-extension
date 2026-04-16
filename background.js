@@ -13,6 +13,8 @@ chrome.runtime.onInstalled.addListener(() => {
     });
 });
 
+const controller = new AbortController();
+
 // Handle the click event
 chrome.contextMenus.onClicked.addListener((info, tab) => {
     chrome.tabs.sendMessage(tab.id, { action: "loadingAI" });
@@ -20,66 +22,45 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     try {
         const selectedText = info.selectionText;
 
-        if (info.menuItemId === "sendToApi_Words") {
-
-            var requestBody = {
-                "model": "ai/qwen2.5",
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": "You are gonna help me improve my dutch. When replying, only return what asked. Do not start the reply with 'Certainly!'."
-                    },
-                    {
-                        "role": "user",
-                        "content": "Can you list (Each one in new line) the Dutch words used in the following text with their meaning in English? '{0}'"
-                    }
-                ]
-            }
-        }
-
-        if (info.menuItemId === "sendToApi_Grammer") {
-            var requestBody = {
-                "model": "ai/qwen2.5",
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": "You are gonna help me improve my dutch. When replying, only return what asked. Do not start the reply with 'Certainly!'."
-                    },
-                    {
-                        "role": "user",
-                        "content": "Can you help understand the grammer used in the following text? '{0}'"
-                    }
-                ]
-            }
-        }
+        var requestBody = makeRequestBody(info);
 
         requestBody.messages[1].content = requestBody.messages[1].content.replace("{0}", selectedText);
 
         chrome.contextMenus.update("sendToApi_Words", { enabled: false });
         chrome.contextMenus.update("sendToApi_Grammer", { enabled: false });
 
-        // Call your REST endpoint
-        fetch('http://localhost:12434/engines/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody)
-        })
-            .then(response => response.json())
-            .then(data => {
-                // Send the data back to the content script in the specific tab
-                var finalResponse = data.choices[0].message.content;
-                var replacedBr = data.choices[0].message.content.replace(/\n/g, '<br/>');
-                chrome.tabs.sendMessage(tab.id, { action: "displayResult", data: replacedBr });
+        var url = '';
+        chrome.storage.sync.get(
+            { chatUrl: '', featureEnabled: false },
+            (items) => {
+                url = items.chatUrl;
 
-                chrome.contextMenus.update("sendToApi_Words", { enabled: true });
-                chrome.contextMenus.update("sendToApi_Grammer", { enabled: true });
-            })
-            .catch(error => {
-                chrome.contextMenus.update("sendToApi_Words", { enabled: true });
-                chrome.contextMenus.update("sendToApi_Grammer", { enabled: true });
+                // Call your REST endpoint
+                fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody),
+                    signal: controller.signal
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        // Send the data back to the content script in the specific tab
+                        chrome.tabs.sendMessage(tab.id, { action: "displayResult", data: data.choices[0].message.content });
 
-                console.error('Error:', error)
-            });
+                        chrome.contextMenus.update("sendToApi_Words", { enabled: true });
+                        chrome.contextMenus.update("sendToApi_Grammer", { enabled: true });
+                    })
+                    .catch(error => {
+                        if (error.name === 'AbortError') {
+                            console.log('Fetch cancelled');
+                        }
+                        chrome.contextMenus.update("sendToApi_Words", { enabled: true });
+                        chrome.contextMenus.update("sendToApi_Grammer", { enabled: true });
+
+                        console.error('Error:', error)
+                    });
+            }
+        );
     }
     catch {
         chrome.contextMenus.update("sendToApi_Words", { enabled: true });
@@ -87,3 +68,47 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     }
 
 });
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'UPDATE_MENU') {
+        controller.abort();
+        chrome.contextMenus.update("sendToApi_Words", { enabled: true });
+        chrome.contextMenus.update("sendToApi_Grammer", { enabled: true });
+    }
+});
+
+function makeRequestBody(info) {
+    if (info.menuItemId === "sendToApi_Words") {
+
+        var requestBody = {
+            "model": "ai/qwen2.5",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You are gonna help me improve my dutch. When replying, only return what asked. Do not start the reply with 'Certainly!'."
+                },
+                {
+                    "role": "user",
+                    "content": "Can you list (Each one in new line) the Dutch words used in the following text with their meaning in English? '{0}'"
+                }
+            ]
+        };
+    }
+
+    if (info.menuItemId === "sendToApi_Grammer") {
+        var requestBody = {
+            "model": "ai/qwen2.5",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You are gonna help me improve my dutch. When replying, only return what asked. Do not start the reply with 'Certainly!'."
+                },
+                {
+                    "role": "user",
+                    "content": "Can you help understand the grammer used in the following text? '{0}'"
+                }
+            ]
+        };
+    }
+    return requestBody;
+}
