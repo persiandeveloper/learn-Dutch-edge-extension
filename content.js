@@ -93,9 +93,6 @@ function showLoading() {
 
         loadingPanel = null;
         loadingActive = false;
-
-        // If using fetch:
-        // controller.abort();
     });
 
     document.body.appendChild(loadingPanel);
@@ -150,7 +147,11 @@ function showPopUp(data) {
         fontFamily: 'Segoe UI, Tahoma, sans-serif'
     });
 
-    var finalContent = data.replace(/\n/g, '<br/>');
+    var replaceBr = data.replace(/\n/g, '<br/>');
+    const finalContent = replaceBr.replace(
+        /\[Verb:(.*?)\]/g,
+        (_, word) => `<a href="#" class="verb-link" data-word="${word}"> - Conjugate</a>`
+    );
 
     panel.innerHTML = `
     <div style="font-weight:bold; margin-bottom:8px; display:flex; justify-content:space-between;">
@@ -176,8 +177,6 @@ function showPopUp(data) {
 
     document.getElementById('close-api-popup').onclick = () => panel.remove();
 
-    debugger;
-
     document.getElementById('copy-api-popup').onclick = () => {
         navigator.clipboard.writeText(data).then(() => {
             const btn = document.getElementById('copy-api-popup');
@@ -185,4 +184,16 @@ function showPopUp(data) {
             setTimeout(() => { btn.textContent = '📋 Copy'; }, 2000);
         });
     };
+
+    document.addEventListener('click', (e) => {
+        if (e.target.matches('.verb-link')) {
+            e.preventDefault();
+            const oldPanel = document.getElementById('api-popup-panel');
+            if (oldPanel) oldPanel.remove();
+            chrome.runtime.sendMessage({
+                type: 'Request_Conjugate',
+                data: e.target.dataset.word
+            });
+        }
+    });
 }

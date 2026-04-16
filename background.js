@@ -75,7 +75,71 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         chrome.contextMenus.update("sendToApi_Words", { enabled: true });
         chrome.contextMenus.update("sendToApi_Grammer", { enabled: true });
     }
+    if (message.type === 'Request_Conjugate') {
+        canjugate(message.data, sender.tab.id );
+    }
 });
+
+function canjugate(data, tabId) {
+    chrome.tabs.sendMessage(tabId, { action: "loadingAI" });
+
+    var requestBody = {
+        "model": "ai/qwen2.5",
+        "messages": [
+            {
+                "role": "system",
+                "content": "You are gonna help me improve my dutch. When replying, only return what asked. Do not start the reply with 'Certainly!'."
+            },
+            {
+                "role": "user",
+                "content": "Conjugate the word in Dutch in different times and forms. I only need Present, Past and Perfect Tense. Here is an example:\n* Present Tense (Noodzakelijke zinsvormen)\nIk eet (I eat)\nJij eet (You eat)\nWe eten (We eat)\n\n* Past Tense (Verleden tijd)\nIk at (I ate)\nJij at (You ate)\nWe aten (We ate)\n\n* Perfect Tense (Voltooid verleden tijd)\nIk heb gegeten (I have eaten)\nJij hebt gegeten (You have eaten)\nWe hebben gegeten (We have eaten)\n. Word : '{0}'"
+            }
+        ]
+    };
+
+    requestBody.messages[1].content = requestBody.messages[1].content.replace("{0}", data);
+
+    chrome.contextMenus.update("sendToApi_Words", { enabled: false });
+    chrome.contextMenus.update("sendToApi_Grammer", { enabled: false });
+
+    try {
+        var url = '';
+        chrome.storage.sync.get(
+            { chatUrl: '', featureEnabled: false },
+            (items) => {
+                url = items.chatUrl;
+
+                // Call your REST endpoint
+                fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody),
+                    signal: controller.signal
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        // Send the data back to the content script in the specific tab
+                        chrome.tabs.sendMessage(tabId, { action: "displayResult", data: data.choices[0].message.content });
+
+                        chrome.contextMenus.update("sendToApi_Words", { enabled: true });
+                        chrome.contextMenus.update("sendToApi_Grammer", { enabled: true });
+                    })
+                    .catch(error => {
+                        if (error.name === 'AbortError') {
+                            console.log('Fetch cancelled');
+                        }
+                        chrome.contextMenus.update("sendToApi_Words", { enabled: true });
+                        chrome.contextMenus.update("sendToApi_Grammer", { enabled: true });
+
+                        console.error('Error:', error)
+                    });
+            }
+        );
+    }
+    catch {
+
+    }
+}
 
 function makeRequestBody(info) {
     if (info.menuItemId === "sendToApi_Words") {
@@ -89,7 +153,7 @@ function makeRequestBody(info) {
                 },
                 {
                     "role": "user",
-                    "content": "Can you list (Each one in new line) the Dutch words used in the following text with their meaning in English? '{0}'"
+                    "content": "Extract each Dutch word from the following text and provide its English meaning. Output format rules: Each word must be on a new line Format: word: meaning If the word is a verb, append [VERB:word] after the meaning. Example: “Ze kocht “ then your reply would be: 'Ze: she \n kocht: bought[Verb:kocht]'. Text: '{0}'"
                 }
             ]
         };
