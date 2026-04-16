@@ -13,7 +13,7 @@ chrome.runtime.onInstalled.addListener(() => {
     });
 });
 
-const controller = new AbortController();
+let controller = new AbortController();
 
 // Handle the click event
 chrome.contextMenus.onClicked.addListener((info, tab) => {
@@ -56,7 +56,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
                         }
                         chrome.contextMenus.update("sendToApi_Words", { enabled: true });
                         chrome.contextMenus.update("sendToApi_Grammer", { enabled: true });
-
+                        controller = new AbortController();
                         console.error('Error:', error)
                     });
             }
@@ -76,7 +76,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         chrome.contextMenus.update("sendToApi_Grammer", { enabled: true });
     }
     if (message.type === 'Request_Conjugate') {
-        canjugate(message.data, sender.tab.id );
+        canjugate(message.data, sender.tab.id);
     }
 });
 
@@ -130,7 +130,7 @@ function canjugate(data, tabId) {
                         }
                         chrome.contextMenus.update("sendToApi_Words", { enabled: true });
                         chrome.contextMenus.update("sendToApi_Grammer", { enabled: true });
-
+                        controller = new AbortController();
                         console.error('Error:', error)
                     });
             }
