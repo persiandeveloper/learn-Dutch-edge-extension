@@ -38,13 +38,27 @@ let controller = new AbortController();
 // Handle the click event
 chrome.contextMenus.onClicked.addListener((info, tab) => {
     chrome.tabs.sendMessage(tab.id, { action: "loadingAI" });
-    controller = new AbortController();
     try {
         const selectedText = info.selectionText;
 
         var requestBody = makeRequestBody(info);
 
         requestBody.messages[1].content = requestBody.messages[1].content.replace("{0}", selectedText);
+
+        callOpenAI(requestBody, tab.id);
+    }
+    catch {
+        
+    }
+
+});
+
+function callOpenAI(requestBody, tabId) {
+
+    try {
+
+        controller = new AbortController();
+
 
         chrome.contextMenus.update("sendToApi_Words", { enabled: false });
         chrome.contextMenus.update("sendToApi_Grammer", { enabled: false });
@@ -59,7 +73,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
             .then(response => response.json())
             .then(data => {
                 // Send the data back to the content script in the specific tab
-                chrome.tabs.sendMessage(tab.id, { action: "displayResult", data: data.choices[0].message.content });
+                chrome.tabs.sendMessage(tabId, { action: "displayResult", data: data.choices[0].message.content });
 
                 chrome.contextMenus.update("sendToApi_Words", { enabled: true });
                 chrome.contextMenus.update("sendToApi_Grammer", { enabled: true });
@@ -74,14 +88,12 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
                 console.error('Error:', error)
             });
 
-
     }
     catch {
         chrome.contextMenus.update("sendToApi_Words", { enabled: true });
         chrome.contextMenus.update("sendToApi_Grammer", { enabled: true });
     }
-
-});
+}
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'UPDATE_MENU') {
@@ -114,38 +126,7 @@ function canjugate(data, tabId) {
 
     requestBody.messages[1].content = requestBody.messages[1].content.replace("{0}", data);
 
-    chrome.contextMenus.update("sendToApi_Words", { enabled: false });
-    chrome.contextMenus.update("sendToApi_Grammer", { enabled: false });
-
-    try {
-
-        fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody),
-            signal: controller.signal
-        })
-            .then(response => response.json())
-            .then(data => {
-                // Send the data back to the content script in the specific tab
-                chrome.tabs.sendMessage(tabId, { action: "displayResult", data: data.choices[0].message.content });
-
-                chrome.contextMenus.update("sendToApi_Words", { enabled: true });
-                chrome.contextMenus.update("sendToApi_Grammer", { enabled: true });
-            })
-            .catch(error => {
-                if (error.name === 'AbortError') {
-                    console.log('Fetch cancelled');
-                }
-                chrome.contextMenus.update("sendToApi_Words", { enabled: true });
-                chrome.contextMenus.update("sendToApi_Grammer", { enabled: true });
-                controller = new AbortController();
-                console.error('Error:', error)
-            });
-    }
-    catch {
-
-    }
+    callOpenAI(requestBody, tabId);
 }
 
 function makeRequestBody(info) {
