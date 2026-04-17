@@ -1,3 +1,23 @@
+let apiUrl = '';
+
+function loadSettings() {
+    return new Promise((resolve) => {
+        chrome.storage.sync.get(
+            { chatUrl: '', featureEnabled: false },
+            (items) => {
+                apiUrl = items.chatUrl;
+                debugger;
+                resolve();
+
+            }
+        );
+    });
+}
+
+// Load when service worker starts
+const initPromise = loadSettings();
+
+
 // Create the context menu item
 chrome.runtime.onInstalled.addListener(() => {
     chrome.contextMenus.create({
@@ -29,38 +49,32 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
         chrome.contextMenus.update("sendToApi_Words", { enabled: false });
         chrome.contextMenus.update("sendToApi_Grammer", { enabled: false });
 
-        var url = '';
-        chrome.storage.sync.get(
-            { chatUrl: '', featureEnabled: false },
-            (items) => {
-                url = items.chatUrl;
+        // Call your REST endpoint
+        fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody),
+            signal: controller.signal
+        })
+            .then(response => response.json())
+            .then(data => {
+                // Send the data back to the content script in the specific tab
+                chrome.tabs.sendMessage(tab.id, { action: "displayResult", data: data.choices[0].message.content });
 
-                // Call your REST endpoint
-                fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(requestBody),
-                    signal: controller.signal
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        // Send the data back to the content script in the specific tab
-                        chrome.tabs.sendMessage(tab.id, { action: "displayResult", data: data.choices[0].message.content });
+                chrome.contextMenus.update("sendToApi_Words", { enabled: true });
+                chrome.contextMenus.update("sendToApi_Grammer", { enabled: true });
+            })
+            .catch(error => {
+                if (error.name === 'AbortError') {
+                    console.log('Fetch cancelled');
+                }
+                chrome.contextMenus.update("sendToApi_Words", { enabled: true });
+                chrome.contextMenus.update("sendToApi_Grammer", { enabled: true });
+                controller = new AbortController();
+                console.error('Error:', error)
+            });
 
-                        chrome.contextMenus.update("sendToApi_Words", { enabled: true });
-                        chrome.contextMenus.update("sendToApi_Grammer", { enabled: true });
-                    })
-                    .catch(error => {
-                        if (error.name === 'AbortError') {
-                            console.log('Fetch cancelled');
-                        }
-                        chrome.contextMenus.update("sendToApi_Words", { enabled: true });
-                        chrome.contextMenus.update("sendToApi_Grammer", { enabled: true });
-                        controller = new AbortController();
-                        console.error('Error:', error)
-                    });
-            }
-        );
+
     }
     catch {
         chrome.contextMenus.update("sendToApi_Words", { enabled: true });
@@ -104,38 +118,30 @@ function canjugate(data, tabId) {
     chrome.contextMenus.update("sendToApi_Grammer", { enabled: false });
 
     try {
-        var url = '';
-        chrome.storage.sync.get(
-            { chatUrl: '', featureEnabled: false },
-            (items) => {
-                url = items.chatUrl;
 
-                // Call your REST endpoint
-                fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(requestBody),
-                    signal: controller.signal
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        // Send the data back to the content script in the specific tab
-                        chrome.tabs.sendMessage(tabId, { action: "displayResult", data: data.choices[0].message.content });
+        fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody),
+            signal: controller.signal
+        })
+            .then(response => response.json())
+            .then(data => {
+                // Send the data back to the content script in the specific tab
+                chrome.tabs.sendMessage(tabId, { action: "displayResult", data: data.choices[0].message.content });
 
-                        chrome.contextMenus.update("sendToApi_Words", { enabled: true });
-                        chrome.contextMenus.update("sendToApi_Grammer", { enabled: true });
-                    })
-                    .catch(error => {
-                        if (error.name === 'AbortError') {
-                            console.log('Fetch cancelled');
-                        }
-                        chrome.contextMenus.update("sendToApi_Words", { enabled: true });
-                        chrome.contextMenus.update("sendToApi_Grammer", { enabled: true });
-                        controller = new AbortController();
-                        console.error('Error:', error)
-                    });
-            }
-        );
+                chrome.contextMenus.update("sendToApi_Words", { enabled: true });
+                chrome.contextMenus.update("sendToApi_Grammer", { enabled: true });
+            })
+            .catch(error => {
+                if (error.name === 'AbortError') {
+                    console.log('Fetch cancelled');
+                }
+                chrome.contextMenus.update("sendToApi_Words", { enabled: true });
+                chrome.contextMenus.update("sendToApi_Grammer", { enabled: true });
+                controller = new AbortController();
+                console.error('Error:', error)
+            });
     }
     catch {
 

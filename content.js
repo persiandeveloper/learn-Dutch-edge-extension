@@ -149,9 +149,9 @@ function showPopUp(data) {
 
     var replaceBr = data.replace(/\n/g, '<br/>');
     const finalContent = replaceBr.replace(
-        /\[Verb:(.*?)\]/g,
+       /\[verb:([^\]]+)\]/gi,
         (_, word) =>
-            ` <a href="#" class="verb-link" data-word="${word}">- Conjugate</a>`
+            ` <a href="#" class="verb-link" data-word="${word}">- ✍️ Conjugate</a>`
     );
 
     panel.innerHTML = `
